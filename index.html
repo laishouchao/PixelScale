@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PixelPerfect - 显示器分辨率计算器</title>
+    <style>
+        body {
+            font-family: 'Microsoft YaHei', sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .input-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            color: #666;
+        }
+        input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            width: 100%;
+            font-size: 16px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        #result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 4px;
+            background-color: #f8f9fa;
+            display: none;
+        }
+        .resolution-option {
+            margin: 10px 0;
+            padding: 10px;
+            background-color: #e9ecef;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>PixelPerfect - 显示器分辨率计算器</h1>
+        <p style="text-align: center; color: #666; margin-bottom: 20px;">帮助您找到与原始分辨率完美对齐的缩放选项，避免画面模糊，确保显示清晰度。</p>
+        <div class="input-group">
+            <label for="width">宽度 (像素):</label>
+            <input type="number" id="width" placeholder="例如: 1920">
+        </div>
+        <div class="input-group">
+            <label for="height">高度 (像素):</label>
+            <input type="number" id="height" placeholder="例如: 1080">
+        </div>
+        <button onclick="calculateResolution()">计算对齐分辨率</button>
+        <div id="result"></div>
+    </div>
+
+    <script>
+        function gcd(a, b) {
+            return b === 0 ? a : gcd(b, a % b);
+        }
+
+        function getAspectRatio(width, height) {
+            const divisor = gcd(width, height);
+            return `${width/divisor}:${height/divisor}`;
+        }
+
+        function generateAlignedResolutions(originalWidth, originalHeight) {
+            const resolutions = [];
+            // 计算所有可能的等比例缩小倍数
+            for (let divisor = 2; divisor <= 8; divisor++) {
+                if (originalWidth % divisor === 0 && originalHeight % divisor === 0) {
+                    const width = originalWidth / divisor;
+                    const height = originalHeight / divisor;
+                    let name = '';
+                    
+                    // 为常见分辨率添加标准名称
+                    if (width === 3840 && height === 2160) name = '4K UHD';
+                    else if (width === 2560 && height === 1440) name = 'QHD (2K)';
+                    else if (width === 1920 && height === 1080) name = 'Full HD (1080p)';
+                    else if (width === 1280 && height === 720) name = 'HD (720p)';
+                    else name = `${width}×${height}`;
+
+                    resolutions.push({
+                        width,
+                        height,
+                        name,
+                        scale: `1/${divisor}缩放`
+                    });
+                }
+            }
+
+            // 添加常见的宽高比例组合
+            const commonRatios = [
+                { w: 16, h: 9 },
+                { w: 16, h: 10 },
+                { w: 4, h: 3 },
+                { w: 3, h: 2 },
+                { w: 21, h: 9 }
+            ];
+
+            commonRatios.forEach(ratio => {
+                const gcdWH = gcd(originalWidth, originalHeight);
+                const baseW = originalWidth / gcdWH;
+                const baseH = originalHeight / gcdWH;
+
+                // 检查是否可以调整为当前比例
+                if (baseW % ratio.w === 0 && baseH % ratio.h === 0) {
+                    const scale = Math.min(baseW / ratio.w, baseH / ratio.h);
+                    const width = ratio.w * scale;
+                    const height = ratio.h * scale;
+
+                    if (width < originalWidth && height < originalHeight && 
+                        Number.isInteger(width) && Number.isInteger(height)) {
+                        resolutions.push({
+                            width,
+                            height,
+                            name: `${width}×${height}`,
+                            scale: `${ratio.w}:${ratio.h}比例`
+                        });
+                    }
+                }
+            });
+
+            // 按分辨率从大到小排序
+            return resolutions.sort((a, b) => (b.width * b.height) - (a.width * a.height));
+        }
+
+        let currentResults = [];
+        let currentDisplayCount = 3;
+
+        function showMore() {
+            currentDisplayCount = currentResults.length;
+            updateResults();
+        }
+
+        function updateResults() {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = `
+                <h3>可用的像素对齐分辨率：</h3>
+                ${currentResults.slice(0, currentDisplayCount).map(res => `
+                    <div class="resolution-option">
+                        <strong>${res.name}</strong><br>
+                        分辨率: ${res.width} × ${res.height}<br>
+                        缩放比例: ${res.scale}<br>
+                        宽高比: ${getAspectRatio(res.width, res.height)}
+                    </div>
+                `).join('')}
+                ${currentResults.length > currentDisplayCount ? `
+                    <button onclick="showMore()" class="show-more-btn">显示更多结果</button>
+                ` : currentResults.length > 3 ? `
+                    <div style="text-align: center; color: #666; margin-top: 10px;">已显示全部结果</div>
+                ` : ''}
+            `;
+        }
+
+        function calculateResolution() {
+            const width = parseInt(document.getElementById('width').value);
+            const height = parseInt(document.getElementById('height').value);
+            
+            if (!width || !height) {
+                alert('请输入有效的宽度和高度！');
+                return;
+            }
+
+            currentResults = generateAlignedResolutions(width, height);
+
+            const resultDiv = document.getElementById('result');
+            resultDiv.style.display = 'block';
+            currentDisplayCount = 3;
+            updateResults();
+        }
+    </script>
+</body>
+</html>
